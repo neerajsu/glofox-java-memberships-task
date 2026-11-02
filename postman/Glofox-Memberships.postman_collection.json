@@ -1,0 +1,2757 @@
+{
+  "info": {
+    "_postman_id": "ab98cc16-4240-4b94-a99f-2820d14ac5e2",
+    "name": "Glofox Memberships",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Local-profile reviewer scenarios. Start a fresh application, run folders in order; inventory folder requires five fresh promo slots. All IDs are discovered/extracted. No public recovery/reset endpoint is invented. See docs/07-local-setup-and-manual-testing.md. A quick run may leave recovery pending; rerun folder 07 after the 90-second age gate. Sequential runs do not prove concurrency."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string",
+      "description": "Local HTTP origin; environment can override."
+    },
+    {
+      "key": "classPackPlanId",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "limitedPlanId",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "unlimitedPlanId",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "inactivePlanId",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "purchaseId",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "currentKey",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "currentPayload",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "uniqueMember",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "idempotencyPayload",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "idempotentPurchaseId",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "recoveryKey",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "recoveryPayload",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "recoveredPurchaseId",
+      "value": "",
+      "type": "string",
+      "description": "Scenario state populated by collection scripts; run setup/discovery or preceding scenario first."
+    },
+    {
+      "key": "unlimitedPurchaseId",
+      "value": "",
+      "type": "string",
+      "description": "Extracted from the unlimited purchase response in folder 02; used by Get Unlimited Purchase."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.variables.set(\"correlationId\", pm.variables.replaceIn(\"{{$guid}}\"));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Health and Setup",
+      "description": "Start the local profile. Health is read-only; settings requests restore harness controls, not inventory or purchases. Run before other folders.",
+      "item": [
+        {
+          "name": "Overall Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/actuator/health",
+            "description": "Requires a running application and baseUrl. Expected 200 UP without component details. Read-only operational check."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"UP without details\", function () { const body=pm.response.json(); pm.expect(body.status).to.eql(\"UP\"); pm.expect(body).not.to.have.property(\"components\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/actuator/health/liveness",
+            "description": "Requires a running application and baseUrl. Expected 200 UP without component details. Read-only operational check."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"UP without details\", function () { const body=pm.response.json(); pm.expect(body.status).to.eql(\"UP\"); pm.expect(body).not.to.have.property(\"components\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/actuator/health/readiness",
+            "description": "Requires a running application and baseUrl. Expected 200 UP without component details. Read-only operational check."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"UP without details\", function () { const body=pm.response.json(); pm.expect(body.status).to.eql(\"UP\"); pm.expect(body).not.to.have.property(\"components\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read Harness Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings",
+            "description": "Requires local profile. Expected an array of allow-listed setting views; read only."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Settings array\", function () { pm.expect(pm.response.json()).to.be.an(\"array\").that.is.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set test-harness.enabled = true",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/test-harness.enabled",
+            "description": "Local profile required. Sets allow-listed test-harness.enabled; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"true\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"test-harness.enabled\"); pm.expect(body.value).to.eql(\"true\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.behavior = SUCCESS",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.behavior",
+            "description": "Local profile required. Sets allow-listed payment.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"SUCCESS\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.behavior\"); pm.expect(body.value).to.eql(\"SUCCESS\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.delay-ms = 0",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.delay-ms",
+            "description": "Local profile required. Sets allow-listed payment.delay-ms; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"0\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.delay-ms\"); pm.expect(body.value).to.eql(\"0\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.transient-error-count = 0",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.transient-error-count",
+            "description": "Local profile required. Sets allow-listed payment.transient-error-count; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"0\", \"enabled\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.transient-error-count\"); pm.expect(body.value).to.eql(\"0\"); pm.expect(body.enabled).to.eql(false); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set inventory.behavior = NORMAL",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/inventory.behavior",
+            "description": "Local profile required. Sets allow-listed inventory.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"NORMAL\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"inventory.behavior\"); pm.expect(body.value).to.eql(\"NORMAL\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set inventory.failure-count = 0",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/inventory.failure-count",
+            "description": "Local profile required. Sets allow-listed inventory.failure-count; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"0\", \"enabled\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"inventory.failure-count\"); pm.expect(body.value).to.eql(\"0\"); pm.expect(body.enabled).to.eql(false); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set membership.behavior = NORMAL",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/membership.behavior",
+            "description": "Local profile required. Sets allow-listed membership.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"NORMAL\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"membership.behavior\"); pm.expect(body.value).to.eql(\"NORMAL\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set membership.failure-count = 0",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/membership.failure-count",
+            "description": "Local profile required. Sets allow-listed membership.failure-count; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"0\", \"enabled\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"membership.failure-count\"); pm.expect(body.value).to.eql(\"0\"); pm.expect(body.enabled).to.eql(false); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Plans",
+      "description": "Discover actual IDs from the list response; there are no plan create/get-one/reset routes.",
+      "item": [
+        {
+          "name": "List Plans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/plans",
+            "description": "Requires running app; baseUrl only. Expected four plans including inactive Legacy Plan. Saves plan IDs for later scenarios. Read only."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "const plans=pm.response.json();",
+                  "pm.test(\"Four seeded plans\", function () { pm.expect(plans).to.have.lengthOf(4); });",
+                  "const selected = {",
+                  "  classPackPlanId: plans.find(p=>p.name === \"10-Class Pack\"),",
+                  "  limitedPlanId: plans.find(p=>p.name === \"Launch Promo Pack\"),",
+                  "  unlimitedPlanId: plans.find(p=>p.name === \"Monthly Unlimited\"),",
+                  "  inactivePlanId: plans.find(p=>p.name === \"Legacy Plan\")",
+                  "};",
+                  "Object.entries(selected).forEach(([key,plan])=>{",
+                  "  pm.test(\"Discovered \" + key, function () { pm.expect(plan).to.be.an(\"object\"); });",
+                  "  if (plan) pm.collectionVariables.set(key,plan.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Successful Purchase",
+      "description": "Run after plan discovery. Demonstrates successful class-pack and unlimited purchases with independent fresh keys/members, then reads both snapshots. Folder 04 separately demonstrates unlimited uniqueness.",
+      "item": [
+        {
+          "name": "Purchase Class Pack",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires local setup and discovered plan variables. Uses currentKey/currentPayload generated by its pre-request script. Expected 201 with an active purchase snapshot. Creates persistent demo workflow/purchase data.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"classPackPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"purchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Created Purchase",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases/{{purchaseId}}",
+            "description": "Requires purchaseId extracted from the preceding purchase response. Expected 200 active snapshot with the same ID. Read only; no new purchase. "
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get(\"purchaseId\")) { throw new Error(\"Run the preceding successful purchase first\"); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Same purchase\", function () { const body=pm.response.json(); pm.expect(body.id).to.eql(pm.collectionVariables.get(\"purchaseId\")); pm.expect(body.status).to.eql(\"active\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Purchase Unlimited Membership",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires local setup and discovered unlimitedPlanId. Generates a fresh member name and idempotency key on every execution. Expected 201 with planType unlimited, null credits and active status. Creates one purchase and an active unlimited claim; independent of folder 04 uniqueness scenarios.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"unlimitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Unlimited \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"unlimitedPurchaseId\", body.id);",
+                  "}",
+                  "pm.test(\"Unlimited plan snapshot\", function () { const body=pm.response.json(); pm.expect(body.planId).to.eql(pm.collectionVariables.get(\"unlimitedPlanId\")); pm.expect(body.planType).to.eql(\"unlimited\"); pm.expect(body.credits).to.eql(null); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Unlimited Purchase",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases/{{unlimitedPurchaseId}}",
+            "description": "Requires unlimitedPurchaseId extracted by Purchase Unlimited Membership. Expected 200 with the same active unlimited purchase; read only."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get(\"unlimitedPurchaseId\")) { throw new Error(\"Run the preceding successful purchase first\"); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Same purchase\", function () { const body=pm.response.json(); pm.expect(body.id).to.eql(pm.collectionVariables.get(\"unlimitedPurchaseId\")); pm.expect(body.status).to.eql(\"active\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Purchase Page",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases?page=0&limit=20",
+            "description": "Requires running app. Expected page 0, limit 20 and content array; no data changes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Page contract\", function () { const body=pm.response.json(); pm.expect(body.page).to.eql(0); pm.expect(body.limit).to.eql(20); pm.expect(body.content).to.be.an(\"array\"); pm.expect(body.totalElements).to.be.at.least(2); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Inventory and Concurrency",
+      "description": "Sequential exhaustion demonstration only. Requires a freshly restarted in-memory database; do not rerun against depleted inventory. True simultaneous contention is in integration tests.",
+      "item": [
+        {
+          "name": "Consume Promo Slot 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Fresh JVM / five initial promo slots required; execute consume requests 1\u20135 in order. Uses discovered limitedPlanId and a fresh key/member. Expected 201; consumes one slot and persists purchase/workflow.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"limitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"purchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consume Promo Slot 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Fresh JVM / five initial promo slots required; execute consume requests 1\u20135 in order. Uses discovered limitedPlanId and a fresh key/member. Expected 201; consumes one slot and persists purchase/workflow.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"limitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"purchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consume Promo Slot 3",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Fresh JVM / five initial promo slots required; execute consume requests 1\u20135 in order. Uses discovered limitedPlanId and a fresh key/member. Expected 201; consumes one slot and persists purchase/workflow.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"limitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"purchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consume Promo Slot 4",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Fresh JVM / five initial promo slots required; execute consume requests 1\u20135 in order. Uses discovered limitedPlanId and a fresh key/member. Expected 201; consumes one slot and persists purchase/workflow.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"limitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"purchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consume Promo Slot 5",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Fresh JVM / five initial promo slots required; execute consume requests 1\u20135 in order. Uses discovered limitedPlanId and a fresh key/member. Expected 201; consumes one slot and persists purchase/workflow.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"limitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"purchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Exhausted Promo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Run after all five slot-consumption requests. Fresh key makes a new operation. Expected 409 INVENTORY_EXHAUSTED; no charge or successful purchase; no negative inventory. This sequential scenario is not proof of concurrency.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"limitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Expected error code\", function () { const body = pm.response.json(); pm.expect(body.code).to.eql(\"INVENTORY_EXHAUSTED\"); pm.expect(body.message).to.be.a(\"string\"); pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Zero Remaining Slots",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/plans",
+            "description": "Requires the five successful promo purchases. Expected remainingSlots=0 for discovered limitedPlanId. Read only."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"No remaining capacity\", function () { const plan=pm.response.json().find(p=>p.id===pm.collectionVariables.get(\"limitedPlanId\")); pm.expect(plan.remainingSlots).to.eql(0); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Membership Uniqueness",
+      "description": "Fresh unlimited member, then a second logical request using a new key and the same normalized name.",
+      "item": [
+        {
+          "name": "Purchase Unlimited Membership",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires local setup and discovered plan variables. Uses currentKey/currentPayload generated by its pre-request script. Expected 201 with an active purchase snapshot. Creates persistent demo workflow/purchase data.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"uniqueMember\", \"Review Unlimited \" + pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "const plan = pm.collectionVariables.get(\"unlimitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: pm.collectionVariables.get(\"uniqueMember\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"purchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Duplicate Unlimited Claim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires successful Purchase Unlimited Membership. Uses a new key and the same normalized member name. Expected 409; no second unlimited purchase or charge.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"unlimitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"  \" + pm.collectionVariables.get(\"uniqueMember\").toLowerCase() + \"  \", planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Expected error code\", function () { const body = pm.response.json(); pm.expect(body.code).to.eql(\"ACTIVE_UNLIMITED_MEMBERSHIP_EXISTS\"); pm.expect(body.message).to.be.a(\"string\"); pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Idempotency",
+      "description": "Run in order. The replay/mismatch requests deliberately reuse the initial key; each changed-payload request changes only startDate.",
+      "item": [
+        {
+          "name": "Create Idempotent Purchase",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires local setup and discovered plan variables. Uses currentKey/currentPayload generated by its pre-request script. Expected 201 with an active purchase snapshot. Creates persistent demo workflow/purchase data.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"classPackPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));",
+                  "pm.collectionVariables.set(\"idempotencyKey\", key);",
+                  "pm.collectionVariables.set(\"idempotencyPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"idempotentPurchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same Key - Same Payload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Run Create Idempotent Purchase first. Reuses saved idempotencyKey/Payload exactly; expected 201 with same purchase ID, without another logical purchase/charge.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const key = pm.collectionVariables.get(\"idempotencyKey\");",
+                  "const payload = pm.collectionVariables.get(\"idempotencyPayload\");",
+                  "if (!key || !payload) throw new Error(\"Run the scenario's initial purchase first\");",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", payload);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"replayedPurchaseId\", body.id);",
+                  "}",
+                  "pm.test(\"Replayed same ID\", function () { pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"idempotentPurchaseId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same Key - Different Payload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires initial idempotency purchase. Reuses its key, changes only startDate. Expected 409 IDEMPOTENCY_KEY_REUSED; no extra purchase.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const key = pm.collectionVariables.get(\"idempotencyKey\");",
+                  "const payload = pm.collectionVariables.get(\"idempotencyPayload\");",
+                  "if (!key || !payload) throw new Error(\"Run the scenario's initial purchase first\");",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", payload);",
+                  "const changed=JSON.parse(pm.collectionVariables.get(\"currentPayload\")); changed.startDate=\"2026-11-03\"; pm.collectionVariables.set(\"currentPayload\", JSON.stringify(changed));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Expected error code\", function () { const body = pm.response.json(); pm.expect(body.code).to.eql(\"IDEMPOTENCY_KEY_REUSED\"); pm.expect(body.message).to.be.a(\"string\"); pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Original Idempotent Purchase",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases/{{idempotentPurchaseId}}",
+            "description": "Requires idempotentPurchaseId extracted from the preceding purchase response. Expected 200 active snapshot with the same ID. Read only; no new purchase. "
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get(\"idempotentPurchaseId\")) { throw new Error(\"Run the preceding successful purchase first\"); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Same purchase\", function () { const body=pm.response.json(); pm.expect(body.id).to.eql(pm.collectionVariables.get(\"idempotentPurchaseId\")); pm.expect(body.status).to.eql(\"active\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Payment Outcomes",
+      "description": "Local harness required. Runs decline/claim-release, permanent error, bounded transient errors, then prepares an ambiguous operation for scheduled recovery. Restores payment SUCCESS before leaving.",
+      "item": [
+        {
+          "name": "Set payment.behavior = DECLINED",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.behavior",
+            "description": "Local profile required. Sets allow-listed payment.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"DECLINED\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.behavior\"); pm.expect(body.value).to.eql(\"DECLINED\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Definitive Payment Decline",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires DECLINED behavior. Fresh unlimited member/key. Expected 402 and no successful purchase; compensation releases its pending unlimited claim. Writes failed workflow evidence.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"declinedMember\", \"Review Decline \" + pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "const plan = pm.collectionVariables.get(\"unlimitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: pm.collectionVariables.get(\"declinedMember\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 402\", function () { pm.response.to.have.status(402); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Expected error code\", function () { const body = pm.response.json(); pm.expect(body.code).to.eql(\"PAYMENT_DECLINED\"); pm.expect(body.message).to.be.a(\"string\"); pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.behavior = SUCCESS",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.behavior",
+            "description": "Local profile required. Sets allow-listed payment.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"SUCCESS\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.behavior\"); pm.expect(body.value).to.eql(\"SUCCESS\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Purchase After Decline Releases Claim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires decline followed by SUCCESS setting. New key, same member as declined request. Expected 201, indirectly demonstrating pending-claim cleanup.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"unlimitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: pm.collectionVariables.get(\"declinedMember\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"purchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.behavior = PERMANENT_ERROR",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.behavior",
+            "description": "Local profile required. Sets allow-listed payment.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"PERMANENT_ERROR\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.behavior\"); pm.expect(body.value).to.eql(\"PERMANENT_ERROR\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Permanent Provider Error",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires PERMANENT_ERROR. Fresh pack request. Expected 502 technical failure with compensation; no successful purchase.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"classPackPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 502\", function () { pm.response.to.have.status(502); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Expected error code\", function () { const body = pm.response.json(); pm.expect(body.code).to.eql(\"PAYMENT_PROVIDER_ERROR\"); pm.expect(body.message).to.be.a(\"string\"); pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.transient-error-count = 2",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.transient-error-count",
+            "description": "Local profile required. Sets allow-listed payment.transient-error-count; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"2\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.transient-error-count\"); pm.expect(body.value).to.eql(\"2\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.behavior = TRANSIENT_ERROR",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.behavior",
+            "description": "Local profile required. Sets allow-listed payment.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"TRANSIENT_ERROR\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.behavior\"); pm.expect(body.value).to.eql(\"TRANSIENT_ERROR\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transient Failures Then Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Enabled transient counter=2. Fresh pack request; expected 201 on third synchronous attempt. Counter settings and provider attempts change; one logical purchase is created.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"classPackPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"Active purchase snapshot\", function () {",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "    pm.expect(body.status).to.eql(\"active\");",
+                  "    pm.expect(Number.isInteger(body.priceCents)).to.eql(true);",
+                  "    pm.expect(body.createdAt).to.be.a(\"string\");",
+                  "    pm.expect(body.paymentTransactionId).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(body.id);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"purchaseId\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.transient-error-count = 0",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.transient-error-count",
+            "description": "Local profile required. Sets allow-listed payment.transient-error-count; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"0\", \"enabled\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.transient-error-count\"); pm.expect(body.value).to.eql(\"0\"); pm.expect(body.enabled).to.eql(false); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.behavior = SUCCESS",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.behavior",
+            "description": "Local profile required. Sets allow-listed payment.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"SUCCESS\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.behavior\"); pm.expect(body.value).to.eql(\"SUCCESS\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.behavior = TIMEOUT_AFTER_PROCESSING",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.behavior",
+            "description": "Local profile required. Sets allow-listed payment.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"TIMEOUT_AFTER_PROCESSING\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.behavior\"); pm.expect(body.value).to.eql(\"TIMEOUT_AFTER_PROCESSING\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Prepare Ambiguous Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires TIMEOUT_AFTER_PROCESSING, scheduler enabled, fresh unlimited member/key. Expected 503 after the simulated ledger commits one charge. Saves recoveryKey/recoveryPayload. Saga/idempotency remain recoverable and claim is retained.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const plan = pm.collectionVariables.get(\"unlimitedPlanId\");",
+                  "if (!plan) throw new Error(\"Run 01 - Plans / List Plans first\");",
+                  "const key = pm.variables.replaceIn(\"{{$guid}}\");",
+                  "const payload = {memberName: \"Review Member \" + pm.variables.replaceIn(\"{{$guid}}\"), planId: plan, startDate: \"2026-11-02\"};",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", JSON.stringify(payload));",
+                  "pm.collectionVariables.set(\"recoveryKey\", key);",
+                  "pm.collectionVariables.set(\"recoveryPayload\", JSON.stringify(payload));",
+                  "pm.collectionVariables.unset(\"recoveredPurchaseId\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 503\", function () { pm.response.to.have.status(503); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Expected error code\", function () { const body = pm.response.json(); pm.expect(body.code).to.eql(\"PAYMENT_OUTCOME_UNKNOWN\"); pm.expect(body.message).to.be.a(\"string\"); pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Immediate In-Progress Retry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Run immediately after ambiguous response, before the 90-second inactivity gate expires. Same key/body expected 409 IN_PROGRESS; do not create a new key.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const key = pm.collectionVariables.get(\"recoveryKey\");",
+                  "const payload = pm.collectionVariables.get(\"recoveryPayload\");",
+                  "if (!key || !payload) throw new Error(\"Run the scenario's initial purchase first\");",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", payload);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Expected error code\", function () { const body = pm.response.json(); pm.expect(body.code).to.eql(\"IDEMPOTENCY_IN_PROGRESS\"); pm.expect(body.message).to.be.a(\"string\"); pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set payment.behavior = SUCCESS",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Admin-Identity",
+                "value": "local-reviewer"
+              }
+            ],
+            "url": "{{baseUrl}}/internal/v1/admin/test-harness/settings/payment.behavior",
+            "description": "Local profile required. Sets allow-listed payment.behavior; uses baseUrl. Expected 200 with the normalized value and enabled flag. Writes a persistent demo setting, not business test-data reset.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"value\": \"SUCCESS\", \"enabled\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Setting applied\", function () { const body = pm.response.json(); pm.expect(body.key).to.eql(\"payment.behavior\"); pm.expect(body.value).to.eql(\"SUCCESS\"); pm.expect(body.enabled).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 - Saga Recovery",
+      "description": "No recovery-trigger endpoint exists. The scheduler works in the background. Allow at least 90 seconds of inactivity plus a cron tick; retry this folder with the same saved key. A fast whole-collection run can report pending without demonstrating completion.",
+      "item": [
+        {
+          "name": "Check Scheduled Recovery Result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases",
+            "description": "Requires Prepare Ambiguous Payment and restored SUCCESS. Reuses recoveryKey/recoveryPayload. After recovery, expected 201 same logical purchase; before due recovery, 409 IN_PROGRESS is a valid pending observation. No manual recovery endpoint is invoked. Repeat this request later with the same saved key.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{currentPayload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const key = pm.collectionVariables.get(\"recoveryKey\");",
+                  "const payload = pm.collectionVariables.get(\"recoveryPayload\");",
+                  "if (!key || !payload) throw new Error(\"Run the scenario's initial purchase first\");",
+                  "pm.collectionVariables.set(\"currentKey\", key);",
+                  "pm.collectionVariables.set(\"currentPayload\", payload);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Recovery complete or explicitly pending\", function () { pm.expect(pm.response.code).to.be.oneOf([201,409]); });",
+                  "if (pm.response.code === 201) {",
+                  "  const body=pm.response.json();",
+                  "  pm.test(\"Recovered active purchase\", function () { pm.expect(body.status).to.eql(\"active\"); pm.expect(body.id).to.be.a(\"string\"); });",
+                  "  const previous=pm.collectionVariables.get(\"recoveredPurchaseId\");",
+                  "  if (previous) pm.test(\"Same recovered purchase\", function () { pm.expect(body.id).to.eql(previous); });",
+                  "  pm.collectionVariables.set(\"recoveredPurchaseId\",body.id);",
+                  "} else {",
+                  "  pm.test(\"Pending idempotency\", function () { pm.expect(pm.response.json().code).to.eql(\"IDEMPOTENCY_IN_PROGRESS\"); });",
+                  "  console.info(\"Recovery is pending. Keep the application running and rerun folder 07 after the inactivity gate and cron tick.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Recovered Purchase",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "{{correlationId}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/memberships/purchases/{{recoveredPurchaseId}}",
+            "description": "Requires recoveredPurchaseId extracted from the preceding purchase response. Expected 200 active snapshot with the same ID. Read only; no new purchase. Skipped while recovery is still pending."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get(\"recoveredPurchaseId\")) { pm.execution.skipRequest(); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Correlation ID returned\", function () { pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Same purchase\", function () { const body=pm.response.json(); pm.expect(body.id).to.eql(pm.collectionVariables.get(\"recoveredPurchaseId\")); pm.expect(body.status).to.eql(\"active\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

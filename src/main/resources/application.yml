@@ -1,9 +1,53 @@
 server:
   port: 8080
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+        add-additional-paths: true
+
 spring:
   application:
     name: memberships-task
+  datasource:
+    hikari:
+      connection-timeout: 1000
+    url: jdbc:h2:mem:memberships;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=1000
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: always
+  jdbc:
+    template:
+      query-timeout: 1s
+  jpa:
+    properties:
+      jakarta.persistence.query.timeout: 1000
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+
+app:
+  saga:
+    recovery:
+      enabled: true
+      cron: "*/15 * * * * *"
+      batch-size: 10
+      minimum-age: PT90S
+      lock-at-most-for: PT5M
+      provider-timeout: PT5S
+      batch-timeout: PT2M
+  test-harness:
+    enabled: false
 
 logging:
   level:

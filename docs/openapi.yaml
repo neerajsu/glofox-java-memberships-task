@@ -1,0 +1,1161 @@
+openapi: 3.0.3
+info:
+  title: Glofox Memberships API
+  version: 1.0.0
+  description: Static Swagger/OpenAPI contract for the implemented H2-backed assignment. All JSON uses camelCase;
+    money is integer cents. No authentication. Business APIs use /v1 and optional local harness APIs use /internal/v1.
+    Actuator probes are unversioned. There is no hosted Swagger UI or /v3/api-docs endpoint. Import this file into
+    Swagger Editor or another OpenAPI viewer. See docs/03-api-reference.md and docs/07-local-setup-and-manual-testing.md
+    for workflows and limitations. Examples are illustrative; discover plan IDs and use returned purchase IDs. H2
+    state is lost on JVM exit.
+servers:
+- url: http://localhost:8080
+  description: Local application; edit the URL for a changed host/port.
+security: []
+tags:
+- name: Plans
+- name: Purchases
+- name: Internal Test Harness
+- name: Operations
+paths:
+  /v1/plans:
+    get:
+      tags:
+      - Plans
+      operationId: listPlans
+      summary: List all plans
+      description: Includes inactive plans. Sorted by ID ascending. Static catalogue metadata is cached locally;
+        remainingSlots is read dynamically. No plan-write API exists.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Plan catalogue; slot counts in the example are for a fresh JVM.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+              example:
+              - id: 11111111-1111-1111-1111-111111111111
+                name: Monthly Unlimited
+                type: unlimited
+                active: true
+                priceCents: 8000
+                credits: null
+                remainingSlots: null
+              - id: 22222222-2222-2222-2222-222222222222
+                name: 10-Class Pack
+                type: pack
+                active: true
+                priceCents: 5000
+                credits: 10
+                remainingSlots: null
+              - id: 33333333-3333-3333-3333-333333333333
+                name: Launch Promo Pack
+                type: pack
+                active: true
+                priceCents: 2500
+                credits: 5
+                remainingSlots: 5
+              - id: 44444444-4444-4444-4444-444444444444
+                name: Legacy Plan
+                type: unlimited
+                active: false
+                priceCents: 6000
+                credits: null
+                remainingSlots: null
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+  /v1/memberships/purchases:
+    get:
+      tags:
+      - Purchases
+      operationId: listPurchases
+      summary: List successful purchases
+      description: 'Always reads the database. Fixed sort: createdAt DESC, id DESC. An out-of-range page returns
+        200 with empty content. No sort/filter parameters are implemented.'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: page
+        in: query
+        required: false
+        description: Zero-based page number; nonnegative int32.
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        description: Page size, 1 through 100 inclusive.
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Zero-based purchase page.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchasePage'
+              example:
+                content: []
+                page: 0
+                limit: 20
+                totalElements: 0
+                totalPages: 0
+                hasMore: false
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+    post:
+      tags:
+      - Purchases
+      operationId: createPurchase
+      summary: Purchase a plan
+      description: 'Requires an application-wide Idempotency-Key. Same canonical payload/key replays a completed
+        result (201) or stored failure; pending work returns 409 IDEMPOTENCY_IN_PROGRESS. Different payload with
+        the same key returns 409 IDEMPOTENCY_KEY_REUSED. Member-name case/outer whitespace is ignored for payload
+        matching and unlimited uniqueness. Only one pending/active unlimited membership per normalized name; packs
+        may coexist. Failed payments create no purchase. Ambiguous outcomes retain claims/reservations for recovery:
+        retry the identical request with the SAME key. No completion deadline is guaranteed.'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: New purchase or successful idempotent replay. Both return 201 and the same snapshot/ID on
+            replay.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+            Location:
+              description: Relative URL of the successful purchase.
+              schema:
+                type: string
+              example: /v1/memberships/purchases/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Purchase'
+              example:
+                id: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+                memberName: Example Member
+                planId: 22222222-2222-2222-2222-222222222222
+                planName: 10-Class Pack
+                planType: pack
+                priceCents: 5000
+                credits: 10
+                startDate: '2026-11-02'
+                status: active
+                paymentTransactionId: sim-txn-example
+                createdAt: '2026-11-02T12:00:00Z'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '402':
+          $ref: '#/components/responses/Error402'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '502':
+          $ref: '#/components/responses/Error502'
+        '503':
+          $ref: '#/components/responses/Error503'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseRequest'
+            examples:
+              classPack:
+                summary: 10-Class Pack
+                value:
+                  memberName: Example Member
+                  planId: 22222222-2222-2222-2222-222222222222
+                  startDate: '2026-11-02'
+              unlimited:
+                summary: 'Monthly Unlimited: use a fresh member and key'
+                value:
+                  memberName: Unlimited Example Member
+                  planId: 11111111-1111-1111-1111-111111111111
+                  startDate: '2026-11-02'
+              limitedPromo:
+                summary: 'Finite promo: five available slots on a fresh JVM'
+                value:
+                  memberName: Promo Example Member
+                  planId: 33333333-3333-3333-3333-333333333333
+                  startDate: '2026-11-02'
+  /v1/memberships/purchases/{id}:
+    get:
+      tags:
+      - Purchases
+      operationId: getPurchase
+      summary: Get a successful purchase
+      description: Always reads the database. An operation ID without a finalized purchase returns 404. No saga-status
+        lookup is exposed.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: id
+        in: path
+        required: true
+        description: Purchase UUID returned by the purchase POST.
+        schema:
+          type: string
+          format: uuid
+        example: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+      responses:
+        '200':
+          description: Successful purchase snapshot.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Purchase'
+              example:
+                id: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+                memberName: Example Member
+                planId: 22222222-2222-2222-2222-222222222222
+                planName: 10-Class Pack
+                planType: pack
+                priceCents: 5000
+                credits: 10
+                startDate: '2026-11-02'
+                status: active
+                paymentTransactionId: sim-txn-example
+                createdAt: '2026-11-02T12:00:00Z'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '500':
+          $ref: '#/components/responses/Error500'
+  /internal/v1/admin/test-harness/settings:
+    get:
+      tags:
+      - Internal Test Harness
+      operationId: listHarnessSettings
+      summary: List harness settings and allowed values
+      description: Available only when app.test-harness.enabled=true (local profile). Default profile returns 404.
+        No authentication. The runtime test-harness.enabled setting cannot register disabled application beans.
+        Unset settings are code-defined defaults with enabled=false and null audit fields; rows are not seeded at
+        startup. Ordering is not a contract.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: All eight setting views.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Setting'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '500':
+          $ref: '#/components/responses/Error500'
+  /internal/v1/admin/test-harness/settings/{key}:
+    get:
+      tags:
+      - Internal Test Harness
+      operationId: getHarnessSetting
+      summary: Get one harness setting
+      description: Available only when app.test-harness.enabled=true (local profile). Default profile returns 404.
+        No authentication. The runtime test-harness.enabled setting cannot register disabled application beans.
+        The returned description lists accepted values or the inclusive numeric range.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: key
+        in: path
+        required: true
+        description: One of the eight allow-listed setting keys. Unknown keys return 400 UNKNOWN_TEST_HARNESS_SETTING.
+        schema:
+          $ref: '#/components/schemas/SettingKey'
+        example: payment.behavior
+      responses:
+        '200':
+          description: Setting view.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Setting'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '500':
+          $ref: '#/components/responses/Error500'
+    put:
+      tags:
+      - Internal Test Harness
+      operationId: updateHarnessSetting
+      summary: Update a local harness setting
+      description: 'Available only when app.test-harness.enabled=true (local profile). Default profile returns 404.
+        No authentication. The runtime test-harness.enabled setting cannot register disabled application beans.
+        Allowed values by key:
+
+
+        - `test-harness.enabled`: `true`, `false`; default `true`.
+
+        - `payment.behavior`: `NORMAL`, `SUCCESS`, `DECLINED`, `TRANSIENT_ERROR`, `PERMANENT_ERROR`, `TIMEOUT_BEFORE_PROCESSING`,
+        `TIMEOUT_AFTER_PROCESSING`; default `NORMAL`.
+
+        - `payment.delay-ms`: Integer string from 0 to 10000 inclusive; default `0`.
+
+        - `payment.transient-error-count`: Integer string from 0 to 10 inclusive; default `0`.
+
+        - `inventory.behavior`: `NORMAL`, `UNAVAILABLE`, `TRANSIENT_ERROR`; default `NORMAL`.
+
+        - `inventory.failure-count`: Integer string from 0 to 10 inclusive; default `0`.
+
+        - `membership.behavior`: `NORMAL`, `ACTIVATION_ERROR`; default `NORMAL`.
+
+        - `membership.failure-count`: Integer string from 0 to 10 inclusive; default `0`.
+
+
+        PUT updates only this setting; it does not reset capacity, purchases, ledger or terminal idempotency results.
+        Values are strings. Missing enabled defaults to false. An enabled counter of zero suppresses its controlled
+        fault; disabling the counter allows the selected fault to repeat. Counter updates may roll back with the
+        surrounding transaction. Path-key/body pairing is validated by the server; choose the matching example below.'
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - name: key
+        in: path
+        required: true
+        description: One of the eight allow-listed setting keys. Unknown keys return 400 UNKNOWN_TEST_HARNESS_SETTING.
+        schema:
+          $ref: '#/components/schemas/SettingKey'
+        example: payment.behavior
+      - name: X-Admin-Identity
+        in: header
+        required: false
+        description: Optional audit identity, not authentication.
+        schema:
+          type: string
+        example: local-reviewer
+      responses:
+        '200':
+          description: Updated setting view.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Setting'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '500':
+          $ref: '#/components/responses/Error500'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSetting'
+            examples:
+              test-harness.enabled:
+                summary: Use with key=test-harness.enabled
+                value:
+                  value: 'true'
+                  enabled: true
+              payment.behavior:
+                summary: Use with key=payment.behavior
+                value:
+                  value: DECLINED
+                  enabled: true
+              payment.delay-ms:
+                summary: Use with key=payment.delay-ms
+                value:
+                  value: '0'
+                  enabled: true
+              payment.transient-error-count:
+                summary: Use with key=payment.transient-error-count
+                value:
+                  value: '0'
+                  enabled: true
+              inventory.behavior:
+                summary: Use with key=inventory.behavior
+                value:
+                  value: NORMAL
+                  enabled: true
+              inventory.failure-count:
+                summary: Use with key=inventory.failure-count
+                value:
+                  value: '0'
+                  enabled: true
+              membership.behavior:
+                summary: Use with key=membership.behavior
+                value:
+                  value: NORMAL
+                  enabled: true
+              membership.failure-count:
+                summary: Use with key=membership.failure-count
+                value:
+                  value: '0'
+                  enabled: true
+  /actuator/health:
+    get:
+      tags:
+      - Operations
+      operationId: getHealth
+      summary: Overall application health
+      description: Native Actuator health JSON; component details are hidden. Probes follow Boot availability state;
+        no extra database contributor is explicitly added to readiness. Overall health includes auto-configured
+        contributors such as the DataSource. DOWN/OUT_OF_SERVICE maps to 503. No authentication.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Healthy/available response, normally UP.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: UP
+        '503':
+          description: Unhealthy/unavailable native health response.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: DOWN
+        '400':
+          $ref: '#/components/responses/Error400'
+  /actuator/health/liveness:
+    get:
+      tags:
+      - Operations
+      operationId: getLiveness
+      summary: Liveness probe
+      description: Native Actuator health JSON; component details are hidden. Probes follow Boot availability state;
+        no extra database contributor is explicitly added to readiness. Overall health includes auto-configured
+        contributors such as the DataSource. DOWN/OUT_OF_SERVICE maps to 503. No authentication.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Healthy/available response, normally UP.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: UP
+        '503':
+          description: Unhealthy/unavailable native health response.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: DOWN
+        '400':
+          $ref: '#/components/responses/Error400'
+  /actuator/health/readiness:
+    get:
+      tags:
+      - Operations
+      operationId: getReadiness
+      summary: Readiness probe
+      description: Native Actuator health JSON; component details are hidden. Probes follow Boot availability state;
+        no extra database contributor is explicitly added to readiness. Overall health includes auto-configured
+        contributors such as the DataSource. DOWN/OUT_OF_SERVICE maps to 503. No authentication.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Healthy/available response, normally UP.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: UP
+        '503':
+          description: Unhealthy/unavailable native health response.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: DOWN
+        '400':
+          $ref: '#/components/responses/Error400'
+  /livez:
+    get:
+      tags:
+      - Operations
+      operationId: getLivenessAlias
+      summary: Liveness probe alias
+      description: Native Actuator health JSON; component details are hidden. Probes follow Boot availability state;
+        no extra database contributor is explicitly added to readiness. Overall health includes auto-configured
+        contributors such as the DataSource. DOWN/OUT_OF_SERVICE maps to 503. No authentication.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Healthy/available response, normally UP.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: UP
+        '503':
+          description: Unhealthy/unavailable native health response.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: DOWN
+        '400':
+          $ref: '#/components/responses/Error400'
+  /readyz:
+    get:
+      tags:
+      - Operations
+      operationId: getReadinessAlias
+      summary: Readiness probe alias
+      description: Native Actuator health JSON; component details are hidden. Probes follow Boot availability state;
+        no extra database contributor is explicitly added to readiness. Overall health includes auto-configured
+        contributors such as the DataSource. DOWN/OUT_OF_SERVICE maps to 503. No authentication.
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Healthy/available response, normally UP.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: UP
+        '503':
+          description: Unhealthy/unavailable native health response.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: DOWN
+        '400':
+          $ref: '#/components/responses/Error400'
+components:
+  parameters:
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Optional on every request. Exactly 1–100 ASCII letters, digits, dots, underscores or hyphens.
+        Missing value is generated. Invalid input returns 400 INVALID_CORRELATION_ID and a generated replacement
+        ID. Returned in the response header.
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9._-]{1,100}$
+        minLength: 1
+        maxLength: 100
+      example: manual-review-001
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 'Nonblank key, trimmed length 1–255. No further character pattern. Reuse only for the identical
+        logical request; generate a fresh key for a new purchase. Missing/blank: IDEMPOTENCY_KEY_REQUIRED; oversized
+        after trimming: INVALID_IDEMPOTENCY_KEY.'
+      schema:
+        type: string
+        minLength: 1
+        description: Maximum 255 characters AFTER trimming; must contain non-whitespace text.
+      example: manual-purchase-001
+  schemas:
+    PlanType:
+      type: string
+      enum:
+      - unlimited
+      - pack
+    Plan:
+      type: object
+      required:
+      - id
+      - name
+      - type
+      - active
+      - priceCents
+      - credits
+      - remainingSlots
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/PlanType'
+        active:
+          type: boolean
+        priceCents:
+          type: integer
+          format: int32
+        credits:
+          type: integer
+          format: int32
+          nullable: true
+          description: Pack credits; null for unlimited plans.
+        remainingSlots:
+          type: integer
+          format: int32
+          nullable: true
+          description: Current available finite capacity excluding reservations; null when capacity is unbounded.
+    PurchaseRequest:
+      type: object
+      required:
+      - memberName
+      - planId
+      - startDate
+      properties:
+        memberName:
+          type: string
+          minLength: 1
+          maxLength: 160
+          description: Must contain non-whitespace text. Original spelling is returned; trimmed/lowercased name
+            is used for uniqueness and idempotency.
+        planId:
+          type: string
+          format: uuid
+          description: 'An active plan ID from GET /v1/plans. Seed IDs: 11111111-1111-1111-1111-111111111111 (Monthly
+            Unlimited); 22222222-2222-2222-2222-222222222222 (10-Class Pack); 33333333-3333-3333-3333-333333333333
+            (Launch Promo Pack); 44444444-4444-4444-4444-444444444444 (inactive Legacy Plan, rejected with 409).
+            IDs are UUIDs, not a closed enum.'
+        startDate:
+          type: string
+          format: date
+          description: ISO calendar date (yyyy-MM-dd). No past/future restriction.
+    Purchase:
+      type: object
+      required:
+      - id
+      - memberName
+      - planId
+      - planName
+      - planType
+      - priceCents
+      - credits
+      - startDate
+      - status
+      - paymentTransactionId
+      - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        memberName:
+          type: string
+        planId:
+          type: string
+          format: uuid
+        planName:
+          type: string
+        planType:
+          $ref: '#/components/schemas/PlanType'
+        priceCents:
+          type: integer
+          format: int32
+        credits:
+          type: integer
+          format: int32
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - active
+        paymentTransactionId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+          description: Generated at microsecond precision to match persisted storage; unchanged on GET and idempotent replay.
+    PurchasePage:
+      type: object
+      required:
+      - content
+      - page
+      - limit
+      - totalElements
+      - totalPages
+      - hasMore
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Purchase'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        limit:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+        hasMore:
+          type: boolean
+    ApiError:
+      type: object
+      required:
+      - code
+      - message
+      - correlationId
+      properties:
+        code:
+          type: string
+          enum:
+          - INVALID_REQUEST
+          - INVALID_PARAMETER
+          - INVALID_CORRELATION_ID
+          - INVALID_PAGE
+          - INVALID_LIMIT
+          - IDEMPOTENCY_KEY_REQUIRED
+          - INVALID_IDEMPOTENCY_KEY
+          - UNKNOWN_TEST_HARNESS_SETTING
+          - INVALID_TEST_HARNESS_VALUE
+          - PAYMENT_DECLINED
+          - PLAN_NOT_FOUND
+          - PURCHASE_NOT_FOUND
+          - NOT_FOUND
+          - PURCHASE_SAGA_NOT_FOUND
+          - PLAN_INACTIVE
+          - INVENTORY_EXHAUSTED
+          - ACTIVE_UNLIMITED_MEMBERSHIP_EXISTS
+          - IDEMPOTENCY_KEY_REUSED
+          - IDEMPOTENCY_IN_PROGRESS
+          - OPTIMISTIC_LOCK_RETRY_EXHAUSTED
+          - MEMBERSHIP_ACTIVATION_FAILED
+          - INTERNAL_ERROR
+          - PAYMENT_PROVIDER_ERROR
+          - PAYMENT_PROVIDER_UNAVAILABLE
+          - PAYMENT_RETRY_INTERRUPTED
+          - PAYMENT_OUTCOME_UNKNOWN
+          - INVENTORY_TEMPORARILY_UNAVAILABLE
+          - PURCHASE_INTERRUPTED_BEFORE_RESERVATION
+          - PURCHASE_INTERRUPTED_BEFORE_PAYMENT
+          description: Branch on code rather than message. Some codes are endpoint-specific; see each operation
+            and the API reference.
+        message:
+          type: string
+        correlationId:
+          type: string
+    SettingKey:
+      type: string
+      enum:
+      - test-harness.enabled
+      - payment.behavior
+      - payment.delay-ms
+      - payment.transient-error-count
+      - inventory.behavior
+      - inventory.failure-count
+      - membership.behavior
+      - membership.failure-count
+    Setting:
+      type: object
+      required:
+      - key
+      - value
+      - enabled
+      - description
+      - updatedAt
+      - updatedBy
+      properties:
+        key:
+          $ref: '#/components/schemas/SettingKey'
+        value:
+          type: string
+          description: 'Stored value, or default if unset. All allowed values by key:
+
+            - `test-harness.enabled`: `true`, `false`; default `true`.
+
+            - `payment.behavior`: `NORMAL`, `SUCCESS`, `DECLINED`, `TRANSIENT_ERROR`, `PERMANENT_ERROR`, `TIMEOUT_BEFORE_PROCESSING`,
+            `TIMEOUT_AFTER_PROCESSING`; default `NORMAL`.
+
+            - `payment.delay-ms`: Integer string from 0 to 10000 inclusive; default `0`.
+
+            - `payment.transient-error-count`: Integer string from 0 to 10 inclusive; default `0`.
+
+            - `inventory.behavior`: `NORMAL`, `UNAVAILABLE`, `TRANSIENT_ERROR`; default `NORMAL`.
+
+            - `inventory.failure-count`: Integer string from 0 to 10 inclusive; default `0`.
+
+            - `membership.behavior`: `NORMAL`, `ACTIVATION_ERROR`; default `NORMAL`.
+
+            - `membership.failure-count`: Integer string from 0 to 10 inclusive; default `0`.'
+        enabled:
+          type: boolean
+          description: False means runtime reads use the definition default, even if a stored value is shown.
+        description:
+          type: string
+          description: Human-readable guidance including every allowed choice or inclusive integer range.
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedBy:
+          type: string
+          nullable: true
+    UpdateSetting:
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: string
+          description: 'Required STRING, including for booleans and numbers. Trimmed; booleans normalize to lowercase
+            and other values to uppercase. Allowed choices/ranges depend on the path key:
+
+            - `test-harness.enabled`: `true`, `false`; default `true`.
+
+            - `payment.behavior`: `NORMAL`, `SUCCESS`, `DECLINED`, `TRANSIENT_ERROR`, `PERMANENT_ERROR`, `TIMEOUT_BEFORE_PROCESSING`,
+            `TIMEOUT_AFTER_PROCESSING`; default `NORMAL`.
+
+            - `payment.delay-ms`: Integer string from 0 to 10000 inclusive; default `0`.
+
+            - `payment.transient-error-count`: Integer string from 0 to 10 inclusive; default `0`.
+
+            - `inventory.behavior`: `NORMAL`, `UNAVAILABLE`, `TRANSIENT_ERROR`; default `NORMAL`.
+
+            - `inventory.failure-count`: Integer string from 0 to 10 inclusive; default `0`.
+
+            - `membership.behavior`: `NORMAL`, `ACTIVATION_ERROR`; default `NORMAL`.
+
+            - `membership.failure-count`: Integer string from 0 to 10 inclusive; default `0`.'
+        enabled:
+          type: boolean
+          default: false
+          description: Enable this stored override. Omission defaults to false. Disabled settings use defaults;
+            an enabled zero failure counter suppresses its fault, while a disabled counter permits repeated faults.
+      description: The server validates value against the selected path key. OpenAPI cannot bind a path parameter
+        to a body schema; key-specific alternatives below describe the allowed body shapes. Matching another key's
+        alternative does not make a value valid for the selected key.
+      anyOf:
+      - $ref: '#/components/schemas/TestHarnessEnabledUpdate'
+      - $ref: '#/components/schemas/PaymentBehaviorUpdate'
+      - $ref: '#/components/schemas/PaymentDelayMsUpdate'
+      - $ref: '#/components/schemas/PaymentTransientErrorCountUpdate'
+      - $ref: '#/components/schemas/InventoryBehaviorUpdate'
+      - $ref: '#/components/schemas/InventoryFailureCountUpdate'
+      - $ref: '#/components/schemas/MembershipBehaviorUpdate'
+      - $ref: '#/components/schemas/MembershipFailureCountUpdate'
+    Health:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - UP
+          - DOWN
+          - OUT_OF_SERVICE
+          - UNKNOWN
+        groups:
+          type: array
+          items:
+            type: string
+            enum:
+            - liveness
+            - readiness
+          description: May be included in overall health; absent in probe responses.
+    TestHarnessEnabledUpdate:
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: string
+          enum:
+          - 'true'
+          - 'false'
+        enabled:
+          type: boolean
+          default: false
+      description: Only for path key `test-harness.enabled`. Values are normalized as described in UpdateSetting.
+    PaymentBehaviorUpdate:
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: string
+          enum:
+          - NORMAL
+          - SUCCESS
+          - DECLINED
+          - TRANSIENT_ERROR
+          - PERMANENT_ERROR
+          - TIMEOUT_BEFORE_PROCESSING
+          - TIMEOUT_AFTER_PROCESSING
+        enabled:
+          type: boolean
+          default: false
+      description: Only for path key `payment.behavior`. Values are normalized as described in UpdateSetting.
+    PaymentDelayMsUpdate:
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: string
+          description: Integer string from 0 to 10000 inclusive; JSON numbers are not the documented request type.
+        enabled:
+          type: boolean
+          default: false
+      description: Only for path key `payment.delay-ms`. Values are normalized as described in UpdateSetting.
+    PaymentTransientErrorCountUpdate:
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: string
+          description: Integer string from 0 to 10 inclusive; JSON numbers are not the documented request type.
+        enabled:
+          type: boolean
+          default: false
+      description: Only for path key `payment.transient-error-count`. Values are normalized as described in UpdateSetting.
+    InventoryBehaviorUpdate:
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: string
+          enum:
+          - NORMAL
+          - UNAVAILABLE
+          - TRANSIENT_ERROR
+        enabled:
+          type: boolean
+          default: false
+      description: Only for path key `inventory.behavior`. Values are normalized as described in UpdateSetting.
+    InventoryFailureCountUpdate:
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: string
+          description: Integer string from 0 to 10 inclusive; JSON numbers are not the documented request type.
+        enabled:
+          type: boolean
+          default: false
+      description: Only for path key `inventory.failure-count`. Values are normalized as described in UpdateSetting.
+    MembershipBehaviorUpdate:
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: string
+          enum:
+          - NORMAL
+          - ACTIVATION_ERROR
+        enabled:
+          type: boolean
+          default: false
+      description: Only for path key `membership.behavior`. Values are normalized as described in UpdateSetting.
+    MembershipFailureCountUpdate:
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: string
+          description: Integer string from 0 to 10 inclusive; JSON numbers are not the documented request type.
+        enabled:
+          type: boolean
+          default: false
+      description: Only for path key `membership.failure-count`. Values are normalized as described in UpdateSetting.
+  responses:
+    Error400:
+      description: 'Business error envelope. Possible codes across endpoints: INVALID_REQUEST, INVALID_PARAMETER,
+        INVALID_CORRELATION_ID, INVALID_PAGE, INVALID_LIMIT, IDEMPOTENCY_KEY_REQUIRED, INVALID_IDEMPOTENCY_KEY,
+        UNKNOWN_TEST_HARNESS_SETTING, INVALID_TEST_HARNESS_VALUE. See operation description/API reference for applicability.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            code: INVALID_REQUEST
+            message: Illustrative error; use code rather than message.
+            correlationId: manual-review-001
+    Error402:
+      description: 'Business error envelope. Possible codes across endpoints: PAYMENT_DECLINED. See operation description/API
+        reference for applicability.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            code: PAYMENT_DECLINED
+            message: Illustrative error; use code rather than message.
+            correlationId: manual-review-001
+    Error404:
+      description: 'Business error envelope. Possible codes across endpoints: PLAN_NOT_FOUND, PURCHASE_NOT_FOUND,
+        NOT_FOUND, PURCHASE_SAGA_NOT_FOUND. See operation description/API reference for applicability.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            code: PLAN_NOT_FOUND
+            message: Illustrative error; use code rather than message.
+            correlationId: manual-review-001
+    Error409:
+      description: 'Business error envelope. Possible codes across endpoints: PLAN_INACTIVE, INVENTORY_EXHAUSTED,
+        ACTIVE_UNLIMITED_MEMBERSHIP_EXISTS, IDEMPOTENCY_KEY_REUSED, IDEMPOTENCY_IN_PROGRESS, OPTIMISTIC_LOCK_RETRY_EXHAUSTED.
+        See operation description/API reference for applicability.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            code: PLAN_INACTIVE
+            message: Illustrative error; use code rather than message.
+            correlationId: manual-review-001
+    Error500:
+      description: 'Business error envelope. Possible codes across endpoints: MEMBERSHIP_ACTIVATION_FAILED, INTERNAL_ERROR.
+        See operation description/API reference for applicability.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            code: MEMBERSHIP_ACTIVATION_FAILED
+            message: Illustrative error; use code rather than message.
+            correlationId: manual-review-001
+    Error502:
+      description: 'Business error envelope. Possible codes across endpoints: PAYMENT_PROVIDER_ERROR. See operation
+        description/API reference for applicability.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            code: PAYMENT_PROVIDER_ERROR
+            message: Illustrative error; use code rather than message.
+            correlationId: manual-review-001
+    Error503:
+      description: 'Business error envelope. Possible codes across endpoints: PAYMENT_PROVIDER_UNAVAILABLE, PAYMENT_RETRY_INTERRUPTED,
+        PAYMENT_OUTCOME_UNKNOWN, INVENTORY_TEMPORARILY_UNAVAILABLE, PURCHASE_INTERRUPTED_BEFORE_RESERVATION, PURCHASE_INTERRUPTED_BEFORE_PAYMENT.
+        See operation description/API reference for applicability.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          example:
+            code: PAYMENT_PROVIDER_UNAVAILABLE
+            message: Illustrative error; use code rather than message.
+            correlationId: manual-review-001
+  headers:
+    CorrelationId:
+      description: Accepted request correlation ID, or a generated ID when missing/invalid.
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9._-]{1,100}$
